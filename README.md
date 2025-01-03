@@ -7,7 +7,7 @@ correction levels. The project includes functionality for drawing alignment patt
 and validating QR code versions.
 
 <div style="text-align: center;">
-  <img src="./qrV8.png" alt="QR Code Version 8" width="500" height="500">
+  <img src="images/qrV8.png" alt="QR Code Version 8" width="500" height="500">
   <div>
     <text>
        An empty QR Code version 8 rendered in the terminal.
