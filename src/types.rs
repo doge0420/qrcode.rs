@@ -300,6 +300,47 @@ impl QrCode {
             }
         }
     }
+
+    pub fn timing_patterns(&mut self) {
+        let length = self.size() - 16;
+
+        let mut bit;
+        for dx in 0..length {
+            let x = dx + 8;
+
+            if self.get(x, 6).unwrap().is_functional() {
+                continue;
+            }
+
+            if x % 2 == 0 {
+                bit = Bit::One(true);
+            } else {
+                bit = Bit::Zero(true);
+            }
+
+            self.put(x, 6, bit);
+        }
+
+        for dy in 0..length {
+            let y = dy + 8;
+
+            if self.get(6, y).unwrap().is_functional() {
+                continue;
+            }
+
+            if y % 2 == 0 {
+                bit = Bit::One(true);
+            } else {
+                bit = Bit::Zero(true);
+            }
+
+            self.put(6, y, bit);
+        }
+    }
+
+    pub fn dark_module(&mut self) {
+        self.put(8, (4 * self.version + 9) as u32, Bit::One(true))
+    }
 }
 
 impl fmt::Display for QrCode {

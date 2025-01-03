@@ -17,11 +17,11 @@ and validating QR code versions.
 
 ## TODO
 
-- add the timing patterns
-- add the dark module
-- add the format information
-- fill the qr with the data
-- implement error correction algorithm to match EC levels
+- [x] add the timing patterns
+- [x] add the dark module
+- [ ] add the format information
+- [ ] fill the qr with the data
+- [ ] implement error correction algorithm to match EC levels
 
 ## Features
 
@@ -40,7 +40,8 @@ and validating QR code versions.
 To install the project, clone the repository and build it using Cargo:
 
 ```sh
-git clone https://github.com/doge0420/QR-code-generator
+git clone https://github.com/doge0420/QR-code-generator.git
 cd qrcode
 cargo build
 cargo run
+```
