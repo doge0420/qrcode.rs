@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 #[derive(Copy, Clone, Debug)]
-enum Bit {
+pub enum Bit {
     One(bool),
     Zero(bool),
 }
@@ -44,6 +44,7 @@ pub struct QrCode {
     data: Vec<Bit>,
     version: u8,
     ec_level: EcLevel,
+    mask_pattern: u8,
 }
 
 impl QrCode {
@@ -77,7 +78,7 @@ impl QrCode {
         Self::coords_to_index(x, y, self.size())
     }
 
-    pub fn new(version: u8, ec_level: EcLevel) -> Result<QrCode, String> {
+    pub fn new(version: u8, ec_level: EcLevel, mask_pattern: u8) -> Result<QrCode, String> {
         if version > 40 || version == 0 {
             Err("Invalid version.".to_string())
         } else {
@@ -87,6 +88,7 @@ impl QrCode {
                 data,
                 version,
                 ec_level,
+                mask_pattern,
             })
         }
     }
@@ -341,6 +343,46 @@ impl QrCode {
     pub fn dark_module(&mut self) {
         self.put(8, (4 * self.version + 9) as u32, Bit::One(true))
     }
+
+    pub fn format_information(&mut self) {
+        const FORMAT_BITS: [u32; 32] = [
+            0x77C4, 0x72F3, 0x7DAA, 0x789D, 0x662F, 0x6318, 0x6C41, 0x6976, 0x5412, 0x5125, 0x5E7C,
+            0x5B4B, 0x45F9, 0x40CE, 0x4F97, 0x4AA0, 0x355F, 0x3068, 0x3F31, 0x3A06, 0x24B4, 0x2183,
+            0x2EDA, 0x2BED, 0x1689, 0x13BE, 0x1CE7, 0x19D0, 0x762, 0x255, 0xD0C, 0x83B,
+        ];
+
+        let mut index = self.mask_pattern as u32;
+        match self.ec_level {
+            EcLevel::L => index += 0,
+            EcLevel::M => index += 8 * 1,
+            EcLevel::Q => index += 8 * 2,
+            EcLevel::H => index += 8 * 3,
+        }
+
+        let info_bit = FORMAT_BITS[index as usize];
+    }
+
+    fn snake(i: u32, x0: u32, y0: u32) -> (u32, u32) {
+        let i_in_module = i % 8;
+        if i_in_module % 2 == 0 {
+            (x0, y0 + i_in_module / 2)
+        } else {
+            (x0 + 1, y0 + (i_in_module - 1) / 2)
+        }
+    }
+
+    pub fn fill(&mut self, data: Vec<Bit>) {
+        const MODULE_SIZE: u32 = 8;
+
+        let mut current_pos = (self.size(), self.size());
+        for (i, bit) in data.iter().enumerate() {
+            let (x, y) = current_pos;
+            let (dx, dy) = Self::snake(i as u32, x, y);
+            current_pos = (dx, dy);
+
+            self.put(dx, dy, bit.clone());
+        }
+    }
 }
 
 impl fmt::Display for QrCode {
@@ -378,25 +420,25 @@ mod tests {
 
     #[test]
     fn get_returns_correct_bit() {
-        let qr = QrCode::new(1, EcLevel::L).unwrap();
+        let qr = QrCode::new(1, EcLevel::L, 1).unwrap();
         assert!(matches!(qr.get(0, 0), Some(Zero(_))));
     }
 
     #[test]
     fn get_returns_none_for_out_of_bounds() {
-        let qr = QrCode::new(1, EcLevel::L).unwrap();
+        let qr = QrCode::new(1, EcLevel::L, 1).unwrap();
         assert_eq!(qr.get(100, 100), None);
     }
 
     #[test]
     fn new_returns_error_for_invalid_version() {
-        let result = QrCode::new(41, EcLevel::L);
+        let result = QrCode::new(41, EcLevel::L, 1);
         assert!(result.is_err());
     }
 
     #[test]
     fn new_creates_qrcode_with_correct_size() {
-        let qr = QrCode::new(1, EcLevel::L).unwrap();
+        let qr = QrCode::new(1, EcLevel::L, 1).unwrap();
         assert_eq!(qr.size(), 21);
     }
 
@@ -408,14 +450,14 @@ mod tests {
 
     #[test]
     fn new_creates_qrcode_with_valid_version() {
-        let qr = QrCode::new(10, EcLevel::M).unwrap();
+        let qr = QrCode::new(10, EcLevel::M, 1).unwrap();
         assert_eq!(qr.version, 10);
         assert_eq!(qr.size(), 57);
     }
 
     #[test]
     fn new_creates_qrcode_with_correct_ec_level() {
-        let qr = QrCode::new(5, EcLevel::Q).unwrap();
+        let qr = QrCode::new(5, EcLevel::Q, 1).unwrap();
         match qr.ec_level {
             EcLevel::Q => assert!(true),
             _ => assert!(false, "Expected EcLevel::Q"),
@@ -424,20 +466,20 @@ mod tests {
 
     #[test]
     fn new_creates_qrcode_with_correct_data_size() {
-        let qr = QrCode::new(2, EcLevel::H).unwrap();
+        let qr = QrCode::new(2, EcLevel::H, 1).unwrap();
         assert_eq!(qr.data.len(), 625);
     }
 
     #[test]
     fn new_returns_error_for_zero_version() {
-        let result = QrCode::new(0, EcLevel::L);
+        let result = QrCode::new(0, EcLevel::L, 1);
         assert!(result.is_err());
         assert_eq!(result.err(), Some("Invalid version.".to_string()));
     }
 
     #[test]
     fn new_returns_error_for_negative_version() {
-        let result = QrCode::new(-1i8 as u8, EcLevel::L);
+        let result = QrCode::new(-1i8 as u8, EcLevel::L, 1);
         assert!(result.is_err());
         assert_eq!(result.err(), Some("Invalid version.".to_string()));
     }
@@ -464,7 +506,7 @@ mod tests {
 
     #[test]
     fn finder_patterns_creates_correct_patterns() {
-        let mut qr = QrCode::new(1, EcLevel::L).unwrap();
+        let mut qr = QrCode::new(1, EcLevel::L, 1).unwrap();
         qr.finder_patterns();
         let expected_pattern = [
             (0, 0),
@@ -499,7 +541,7 @@ mod tests {
 
     #[test]
     fn finder_patterns_handles_minimum_size() {
-        let mut qr = QrCode::new(1, EcLevel::L).unwrap();
+        let mut qr = QrCode::new(1, EcLevel::L, 1).unwrap();
         qr.finder_patterns();
         assert!(matches!(qr.get(0, 0), Some(One(_))));
         assert!(matches!(qr.get(20, 20), Some(Zero(_))));
@@ -507,7 +549,7 @@ mod tests {
 
     #[test]
     fn finder_patterns_handles_maximum_size() {
-        let mut qr = QrCode::new(40, EcLevel::L).unwrap();
+        let mut qr = QrCode::new(40, EcLevel::L, 1).unwrap();
         qr.finder_patterns();
         assert!(matches!(qr.get(0, 0), Some(One(_))));
         assert!(matches!(qr.get(176, 176), Some(Zero(_))));
