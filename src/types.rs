@@ -31,6 +31,27 @@ impl Bit {
             Bit::Zero(_) => false,
         }
     }
+
+    pub fn from(data: u32, n_bits: u8, functional: bool, reverse: bool) -> Vec<Bit> {
+        let mut bits = Vec::new();
+        for i in 0..n_bits {
+            let mask = if reverse {
+                1 << (n_bits - i - 1)
+            } else {
+                1 << i
+            };
+            let bit = (data & mask) != 0;
+            match bit {
+                true => {
+                    bits.push(Bit::One(functional));
+                }
+                false => {
+                    bits.push(Bit::Zero(functional));
+                }
+            }
+        }
+        bits
+    }
 }
 
 pub enum EcLevel {
@@ -360,6 +381,80 @@ impl QrCode {
         }
 
         let info_bit = FORMAT_BITS[index as usize];
+        let bits = Bit::from(info_bit, 15, true, true);
+
+        let mut i = 0;
+        for x in 0..9 {
+            if self.get(x, 8).unwrap().is_functional() {
+                continue;
+            }
+            self.put(x, 8, bits[i as usize]);
+            i += 1;
+        }
+
+        let mut i = 7;
+        for y in (0..9).rev() {
+            if self.get(8, y).unwrap().is_functional() {
+                continue;
+            }
+            self.put(8, y, bits[i as usize]);
+            i += 1;
+        }
+
+        let mut i = 0;
+        for y in ((self.size() - 7)..self.size()).rev() {
+            self.put(8, y, bits[i as usize]);
+            i += 1;
+        }
+
+        let mut i = 7;
+        for x in (self.size() - 8)..self.size() {
+            self.put(x, 8, bits[i as usize]);
+            i += 1;
+        }
+    }
+
+    pub fn version_information(&mut self) {
+        assert!(
+            self.version >= 7,
+            "Version information is not available for versions below 7."
+        );
+
+        const VERSION_BITS: [u32; 34] = [
+            0x07c94, 0x085bc, 0x09a99, 0x0a4d3, 0x0bbf6, 0x0c762, 0x0d847, 0x0e60d, 0x0f928,
+            0x10b78, 0x1145d, 0x12a17, 0x13532, 0x149a6, 0x15683, 0x168c9, 0x177ec, 0x18ec4,
+            0x191e1, 0x1afab, 0x1b08e, 0x1cc1a, 0x1d33f, 0x1ed75, 0x1f250, 0x209d5, 0x216f0,
+            0x228ba, 0x2379f, 0x24b0b, 0x2542e, 0x26a64, 0x27541, 0x28c69,
+        ];
+
+        let version_bits = VERSION_BITS[(self.version - 7) as usize];
+        let bits = Bit::from(version_bits, 18, true, true);
+
+        dbg!(&bits);
+
+        // bottom left
+        let mut x = 0;
+        let mut y = self.size() - 11;
+        for i in 0..18 {
+            if i % 3 == 0 && i != 0 {
+                x += 1;
+                y = self.size() - 11;
+            }
+            self.put(x, y, bits[i as usize]);
+            y += 1;
+        }
+
+        // top right
+        let mut x = self.size() - 11;
+        let mut y = 0;
+        for i in 0..18 {
+            if i % 3 == 0 && i != 0 {
+                y += 1;
+                x = self.size() - 11;
+            }
+            self.put(x, y, bits[i as usize]);
+            x += 1;
+        }
     }
 
     fn snake(i: u32, x0: u32, y0: u32) -> (u32, u32) {

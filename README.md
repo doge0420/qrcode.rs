@@ -3,8 +3,7 @@
 ## Overview
 
 This project is a QR code generator written in Rust. It allows users to create QR codes of various versions and error
-correction levels. The project includes functionality for drawing alignment patterns, formatting QR codes for display,
-and validating QR code versions.
+correction levels.
 
 <div style="text-align: center;">
   <img src="./images/qrV8.png" alt="QR Code Version 8" width="500" height="500">
@@ -19,21 +18,20 @@ and validating QR code versions.
 
 - [x] add the timing patterns
 - [x] add the dark module
-- [ ] add the format information
-- [ ] fill the qr with the data
+- [x] add the format information
+- [x] add the version information
+- [ ] fill the qr code with the data
 - [ ] implement error correction algorithm to match EC levels
 
 ## Features
 
 - Generate QR codes of different versions
 - Support for various error correction levels
-- Draw alignment patterns
 - Format QR codes for display
-- Validate QR code versions
 
 ## Ressources
 
-- [Thonky.com's QR Code Tutorial](https://www.thonky.com/qr-code-tutorial/)
+- [Thonky's QR Code Tutorial](https://www.thonky.com/qr-code-tutorial/)
 
 ## Installation
 
