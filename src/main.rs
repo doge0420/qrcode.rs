@@ -1,20 +1,34 @@
-use crate::types::{Bit, EcLevel, QrCode};
+use crate::bit::Bit;
+use crate::encoding::{to_bits, with_mod_indicator, Encoding};
+use crate::qrcode::{EcLevel, QrCode};
 
+mod bit;
+mod encoding;
+mod qrcode;
 mod types;
 
 fn main() {
-    let mut qrcode = QrCode::new(3, EcLevel::L, 4).unwrap();
-    qrcode.finder_patterns();
-    qrcode.separators_patterns();
-    qrcode.alignment_patterns();
-    qrcode.timing_patterns();
-    qrcode.dark_module();
-    qrcode.format_information();
-    // qrcode.version_information();
+    let mut qrcode = QrCode::new(2, EcLevel::L, 4, Encoding::Alphanumeric).unwrap();
+    qrcode.all_functional_patterns();
 
-    let data = 0xAA;
-    let bits = Bit::from(data, 8, false, false);
-    qrcode.fill(bits);
+    let mut data = to_bits("hello world".to_string());
+
+    with_mod_indicator(&mut data, Encoding::Alphanumeric);
+
+    for bit in data.iter() {
+        match bit {
+            Bit::One(_) => {
+                print!("1")
+            }
+            Bit::Zero(_) => {
+                print!("0")
+            }
+        }
+    }
+
+    println!();
+
+    qrcode.fill(data);
 
     println!("{}", qrcode);
 }
