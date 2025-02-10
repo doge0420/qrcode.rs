@@ -1,6 +1,6 @@
 use crate::bit::Bit;
 
-pub fn to_bits(data: String) -> Vec<Bit> {
+pub fn to_bits(data: &str) -> Vec<Bit> {
     data.chars()
         .map(|c| {
             let mut bits = vec![];
@@ -19,8 +19,8 @@ pub fn to_bits(data: String) -> Vec<Bit> {
         .collect()
 }
 
-pub fn with_mod_indicator(data: &mut Vec<Bit>, encoding: Encoding) {
-    let mode = match encoding {
+pub fn mod_indicator(encoding: &Encoding) -> Vec<Bit> {
+    match encoding {
         Encoding::Numeric => {
             vec![
                 Bit::Zero(false),
@@ -53,11 +53,10 @@ pub fn with_mod_indicator(data: &mut Vec<Bit>, encoding: Encoding) {
                 Bit::Zero(false),
             ]
         }
-    };
-
-    data.splice(0..0, mode);
+    }
 }
 
+#[derive(Copy, Clone)]
 pub enum Encoding {
     Numeric,
     Alphanumeric,

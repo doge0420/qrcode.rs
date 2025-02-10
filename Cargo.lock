@@ -3,5 +3,14 @@
 version = 4
 
 [[package]]
+name = "kanji"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "582446620c9a363d1f011b392acfd64ecda983b63866ae38a8d6086e5ef820b3"
+
+[[package]]
 name = "qrcode"
 version = "0.1.0"
+dependencies = [
+ "kanji",
+]
