@@ -11,9 +11,9 @@ pub fn error_correction(data: &str) -> Vec<Bit> {
     unimplemented!()
 }
 
-// https://github.com/kennytm/qrcode-rust/blob/master/src/ec.rs @ line 380
-//
-// The number of error correction bytes per block per ec level.
+/// https://github.com/kennytm/qrcode-rust/blob/master/src/ec.rs @ line 380
+///
+/// The number of error correction bytes per block per ec level.
 static EC_BYTES_PER_BLOCK: [[usize; 4]; 40] = [
     // Normal versions.
     [7, 10, 13, 17],  // 1
@@ -58,9 +58,10 @@ static EC_BYTES_PER_BLOCK: [[usize; 4]; 40] = [
     [30, 28, 30, 30], // 40
 ];
 
-// https://github.com/kennytm/qrcode-rust/blob/master/src/ec.rs @ line 438
-//
-// The number
+/// https://github.com/kennytm/qrcode-rust/blob/master/src/ec.rs @ line 438
+///
+/// The number of blocks in a group and the number of data codewords per block.
+/// For a given version: (blocks in group 1, codewords in group 1, blocks in group 2, codewords in group 2)
 static DATA_BYTES_PER_BLOCK: [[(usize, usize, usize, usize); 4]; 40] = [
     // Normal versions.
     [(19, 1, 0, 0), (16, 1, 0, 0), (13, 1, 0, 0), (9, 1, 0, 0)], // 1
