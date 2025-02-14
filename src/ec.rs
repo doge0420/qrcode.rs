@@ -7,45 +7,56 @@ pub enum EcLevel {
     L,
 }
 
-/// Represents a polynomial in the Galois Field 256.
-struct Polynomial {
-    coefficients: Vec<u8>,
-    degree: usize,
+impl EcLevel {
+    pub fn ordinal(&self) -> u8 {
+        match self {
+            EcLevel::H => 0,
+            EcLevel::Q => 1,
+            EcLevel::M => 2,
+            EcLevel::L => 3,
+        }
+    }
 }
 
-impl Polynomial {
-    /// Creates a polynomial of degree `degree`.
-    /// The degree of a given coefficient can be inferred from its index.
-    /// Note that the coefficient vector has to be in the correct order. i.e. the last element is the highest degree.
-    pub fn new(coefficients: Vec<u8>) -> Polynomial {
-        let degree = coefficients.len();
-        Polynomial {
-            coefficients,
-            degree,
+pub fn error_correction(data: Vec<u8>, version: u8, ec_level: EcLevel) -> Vec<u8> {
+    let ec_level = ec_level.ordinal();
+    let (group1, blocks1, group2, blocks2) =
+        DATA_BYTES_PER_BLOCK[version as usize][ec_level as usize];
+    let group1_count = blocks1 * group1;
+    let group2_count = blocks2 * group2;
+    let codewords = (group1_count + group2_count) as u32;
+
+    let mut blocks = Vec::with_capacity(codewords as usize);
+    let (group1, group2) = data.split_at(group1_count + 1);
+
+    assert_eq!(group1.len() + group2.len(), codewords as usize);
+
+    group1.iter().for_each(|block| {
+        blocks.push(*block);
+    });
+    group2.iter().for_each(|block| {
+        blocks.push(*block);
+    });
+
+    unimplemented!()
+}
+
+fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u8]) -> Vec<Bit> {
+    let mut codewords = block.clone();
+    codewords.resize(ec_size + block.len(), 0);
+
+    for i in 0..block.len() {
+        let coeff = codewords[i];
+        if coeff == 0 {
+            continue;
+        }
+
+        let coeff_log = LOG_TABLE[coeff as usize];
+        for j in i..codewords.len() {
+            todo!("Multiply the generator polynomial by the coefficient");
         }
     }
 
-    /// Multiplies the polynomial by x^`degree`.
-    pub fn times_x(&mut self, degree: u8) -> Polynomial {
-        let mut res = vec![0; degree as usize];
-        let mut new_coefficients = self
-            .coefficients
-            .iter()
-            .map(|coeff| coeff + degree)
-            .collect::<Vec<u8>>();
-        res.append(new_coefficients.as_mut());
-        Polynomial::new(res)
-    }
-
-    pub fn poly_div(&mut self, denominator: Polynomial) -> Polynomial {}
-
-    pub fn from_generator_polynomial(codewords: u32) -> Polynomial {
-        let coefficients = GENERATOR_POLYNOMIALS[codewords as usize];
-        Polynomial::new(Vec::from(coefficients))
-    }
-}
-
-pub fn error_correction(data: &str) -> Vec<Bit> {
     unimplemented!()
 }
 
