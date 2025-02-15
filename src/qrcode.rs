@@ -417,7 +417,7 @@ impl QrCode {
         }
     }
 
-    pub fn fill(&mut self, bits: Vec<Bit>) {
+    pub fn fill(&mut self, bits: &Vec<Bit>) {
         let mut x = self.size() as usize - 1;
         let mut y = self.size() as usize - 1;
         let mut up = true;
@@ -474,7 +474,7 @@ impl QrCode {
                 }
             }
 
-            self.put(x as u32, y as u32, bit);
+            self.put(x as u32, y as u32, *bit);
         }
     }
 }
@@ -483,20 +483,42 @@ impl fmt::Display for QrCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut qrcode = String::new();
 
-        for (i, module) in self.data.iter().enumerate() {
-            if module.value() {
-                qrcode.push_str("  ");
-            } else {
+        let lines: Vec<_> = self.data.chunks(self.size() as usize).collect();
+
+        // add quiet zone
+        for _ in 0..4 {
+            for _ in 0..self.size() + 8 {
                 qrcode.push_str("██");
             }
+            qrcode.push('\n');
+        }
 
-            if (i + 1) % self.size() as usize == 0 {
-                qrcode.push('\n')
+        for i in 0..self.size() {
+            for _ in 0..4 {
+                qrcode.push_str("██");
             }
+            for module in lines[i as usize] {
+                if module.value() {
+                    qrcode.push_str("  ");
+                } else {
+                    qrcode.push_str("██");
+                }
+            }
+            for _ in 0..4 {
+                qrcode.push_str("██");
+            }
+            qrcode.push('\n');
+        }
+
+        for _ in 0..4 {
+            for _ in 0..self.size() + 8 {
+                qrcode.push_str("██");
+            }
+            qrcode.push('\n');
         }
 
         let mut version = String::from('\n');
-        for _ in 0..(self.size() - 5) {
+        for _ in 0..self.size() {
             version.push(' ');
         }
         version.push_str("Version: ");

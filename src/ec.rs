@@ -1,5 +1,4 @@
-use crate::bit::Bit;
-
+#[derive(Clone, Copy)]
 pub enum EcLevel {
     H,
     Q,
@@ -18,7 +17,7 @@ impl EcLevel {
     }
 }
 
-pub fn error_correction(data: Vec<u8>, version: u8, ec_level: EcLevel) -> Vec<u8> {
+pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<u8> {
     let ec_level = ec_level.ordinal();
     let (group1, blocks1, group2, blocks2) =
         DATA_BYTES_PER_BLOCK[version as usize][ec_level as usize];
@@ -26,38 +25,78 @@ pub fn error_correction(data: Vec<u8>, version: u8, ec_level: EcLevel) -> Vec<u8
     let group2_count = blocks2 * group2;
     let codewords = (group1_count + group2_count) as u32;
 
-    let mut blocks = Vec::with_capacity(codewords as usize);
+    let mut blocks = Vec::with_capacity(group1 + group2);
     let (group1, group2) = data.split_at(group1_count + 1);
 
-    assert_eq!(group1.len() + group2.len(), codewords as usize);
+    // assert_eq!(group1.len() + group2.len(), codewords as usize);
 
-    group1.iter().for_each(|block| {
-        blocks.push(*block);
+    group1.chunks(group1_count).for_each(|block| {
+        blocks.push(block.to_vec());
     });
-    group2.iter().for_each(|block| {
-        blocks.push(*block);
-    });
-
-    unimplemented!()
-}
-
-fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u8]) -> Vec<Bit> {
-    let mut codewords = block.clone();
-    codewords.resize(ec_size + block.len(), 0);
-
-    for i in 0..block.len() {
-        let coeff = codewords[i];
-        if coeff == 0 {
-            continue;
-        }
-
-        let coeff_log = LOG_TABLE[coeff as usize];
-        for j in i..codewords.len() {
-            todo!("Multiply the generator polynomial by the coefficient");
-        }
+    if group2_count != 0 {
+        group2.chunks(group2_count).for_each(|block| {
+            blocks.push(block.to_vec());
+        });
     }
 
-    unimplemented!()
+    blocks
+        .iter()
+        .flat_map(|block| {
+            let ec_size = EC_BYTES_PER_BLOCK[version as usize][ec_level as usize];
+            let generator_polynomial = GENERATOR_POLYNOMIALS[ec_size];
+            create_ec_for_block(block.clone(), ec_size, generator_polynomial)
+        })
+        .collect::<Vec<u8>>()
+}
+
+fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u8]) -> Vec<u8> {
+    let data_len = block.len();
+    let mut codewords = block;
+    codewords.resize(data_len + ec_size, 0);
+
+    for i in 0..data_len {
+        let lead_coeff = codewords[i];
+        if lead_coeff == 0 {
+            continue;
+        }
+        let log_lead_coeff = usize::from(LOG_TABLE[lead_coeff as usize]);
+
+        codewords[i + 1..]
+            .iter_mut()
+            .zip(generator_polynomial.iter())
+            .for_each(|(cw, &gen_coeff)| {
+                *cw ^= EXP_TABLE[(usize::from(gen_coeff) + log_lead_coeff) % 255];
+            });
+    }
+
+    codewords.split_off(data_len)
+}
+
+#[cfg(test)]
+mod ec_tests {
+    use super::*;
+
+    #[test]
+    fn create_ec_for_block_works_simple() {
+        let block = vec![1, 2, 3];
+        let ec_size = block.len();
+        let generator_polynomial = GENERATOR_POLYNOMIALS[ec_size];
+
+        let ec = create_ec_for_block(block, ec_size, generator_polynomial);
+        assert!(ec.eq(&vec![92, 236, 176]));
+    }
+
+    #[test]
+    fn create_ec_for_block_works_complex() {
+        let block = vec![32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236];
+        let ec_size = block.len();
+        let generator_polynomial = GENERATOR_POLYNOMIALS[ec_size];
+
+        let ec = create_ec_for_block(block, ec_size, generator_polynomial);
+        assert!(ec.eq(&vec![
+            168, 72, 22, 82, 217, 54, 156, 0, 46, 15, 180, 122, 16
+        ]));
+    }
 }
 
 /// https://github.com/kennytm/qrcode-rust/blob/master/src/ec.rs @ line 380

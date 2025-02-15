@@ -6,7 +6,7 @@ This project is a QR code generator written in Rust. It allows users to create Q
 correction levels.
 
 <div style="text-align: center;">
-  <img src="./images/qrV8.png" alt="QR Code Version 8" width="500" height="500">
+  <img src="./images/qrV3.png" alt="QR Code Version 8" width="500" height="500">
   <div>
     <text>
        An empty QR Code version 8 rendered in the terminal.
@@ -20,8 +20,10 @@ correction levels.
 - [x] add the dark module
 - [x] add the format information
 - [x] add the version information
-- [ ] fill the qr code with the data
-- [ ] implement error correction algorithm to match EC levels
+- [x] fill the qr code with the data
+- [x] implement error correction algorithm to match EC levels
+- [ ] interleave codewords
+- [ ] debug
 
 ## Features
 
