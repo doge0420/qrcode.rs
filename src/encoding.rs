@@ -38,47 +38,104 @@ pub fn to_bits_array(data: &[u8]) -> Vec<Bit> {
         .collect()
 }
 
-pub fn mod_indicator(encoding: &Encoding) -> Vec<Bit> {
-    match encoding {
-        Encoding::Numeric => {
-            vec![
-                Bit::Zero(false),
-                Bit::Zero(false),
-                Bit::Zero(false),
-                Bit::One(false),
-            ]
-        }
-        Encoding::Alphanumeric => {
-            vec![
-                Bit::Zero(false),
-                Bit::Zero(false),
-                Bit::One(false),
-                Bit::Zero(false),
-            ]
-        }
-        Encoding::Byte => {
-            vec![
-                Bit::Zero(false),
-                Bit::One(false),
-                Bit::Zero(false),
-                Bit::Zero(false),
-            ]
-        }
-        Encoding::Kanji => {
-            vec![
-                Bit::One(false),
-                Bit::Zero(false),
-                Bit::Zero(false),
-                Bit::Zero(false),
-            ]
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 pub enum Encoding {
     Numeric,
     Alphanumeric,
     Byte,
     Kanji,
+}
+
+impl Encoding {
+    pub fn mod_indicator(&self) -> Vec<Bit> {
+        match self {
+            Encoding::Numeric => {
+                vec![
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::One(false),
+                ]
+            }
+            Encoding::Alphanumeric => {
+                vec![
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::One(false),
+                    Bit::Zero(false),
+                ]
+            }
+            Encoding::Byte => {
+                vec![
+                    Bit::Zero(false),
+                    Bit::One(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                ]
+            }
+            Encoding::Kanji => {
+                vec![
+                    Bit::One(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                ]
+            }
+        }
+    }
+
+    pub fn encode(&self, data: &str) -> Result<Vec<Bit>, String> {
+        match self {
+            Encoding::Numeric => {
+                unimplemented!()
+            }
+            Encoding::Alphanumeric => Encoding::encode_alphanumeric(data),
+            Encoding::Byte => {
+                unimplemented!()
+            }
+            Encoding::Kanji => {
+                unimplemented!()
+            }
+        }
+    }
+
+    fn encode_alphanumeric(data: &str) -> Result<Vec<Bit>, String> {
+        let pairs = data
+            .chars()
+            .map(|c| Self::alphanumeric_value(c))
+            .collect::<Result<Vec<u16>, String>>();
+
+        match pairs {
+            Ok(vec) => Ok(vec
+                .chunks(2)
+                .flat_map(|pair| {
+                    if pair.len() == 2 {
+                        let value = pair[0] * 45 + pair[1];
+                        Bit::from(value as u32, 11, false, false)
+                    } else {
+                        let value = pair[0];
+                        Bit::from(value as u32, 6, false, false)
+                    }
+                })
+                .collect()),
+            Err(msg) => Err(msg),
+        }
+    }
+
+    fn alphanumeric_value(c: char) -> Result<u16, String> {
+        match c {
+            '0'..='9' => Ok(c as u16 - '0' as u16),
+            'A'..='Z' => Ok(c as u16 - 'A' as u16 + 10),
+            ' ' => Ok(36),
+            '$' => Ok(37),
+            '%' => Ok(38),
+            '*' => Ok(39),
+            '+' => Ok(40),
+            '-' => Ok(41),
+            '.' => Ok(42),
+            '/' => Ok(43),
+            ':' => Ok(44),
+            _ => Err(format!("Invalid character: {}", c)),
+        }
+    }
 }

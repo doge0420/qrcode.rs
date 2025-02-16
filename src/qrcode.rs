@@ -1,14 +1,15 @@
 use crate::bit::Bit;
 use crate::ec::EcLevel;
 use crate::encoding::Encoding;
+use crate::mask::MaskPattern;
 use std::fmt;
 use std::fmt::Formatter;
 
 pub struct QrCode {
-    data: Vec<Bit>,
+    pub data: Vec<Bit>,
     version: u8,
     ec_level: EcLevel,
-    mask_pattern: u8,
+    mask_pattern: MaskPattern,
     encoding: Encoding,
 }
 
@@ -46,7 +47,7 @@ impl QrCode {
     pub fn new(
         version: u8,
         ec_level: EcLevel,
-        mask_pattern: u8,
+        mask_pattern: MaskPattern,
         encoding: Encoding,
     ) -> Result<QrCode, String> {
         if version > 40 || version == 0 {
@@ -264,9 +265,7 @@ impl QrCode {
             &[6, 30, 58, 86, 114, 142, 170],
         ];
 
-        if self.version == 1 {
-            self.draw_alignment_pattern(18, 18);
-        } else {
+        if self.version != 1 {
             let combinations = Self::combination(COORDS[(self.version - 2) as usize]);
             for (x, y) in combinations {
                 self.draw_alignment_pattern(x as u32, y as u32);
@@ -322,7 +321,7 @@ impl QrCode {
             0x2EDA, 0x2BED, 0x1689, 0x13BE, 0x1CE7, 0x19D0, 0x762, 0x255, 0xD0C, 0x83B,
         ];
 
-        let mut index = self.mask_pattern as u32;
+        let mut index = self.mask_pattern.ordinal() as u32;
         match self.ec_level {
             EcLevel::L => index += 0,
             EcLevel::M => index += 8 * 1,
@@ -342,8 +341,8 @@ impl QrCode {
             i += 1;
         }
 
-        let mut i = 7;
-        for y in (0..9).rev() {
+        let mut i = 8;
+        for y in (0..8).rev() {
             if self.get(8, y).unwrap().is_functional() {
                 continue;
             }
@@ -405,6 +404,21 @@ impl QrCode {
         }
     }
 
+    pub fn apply_mask(&mut self) {
+        let mask_fn = self.mask_pattern.get_mask();
+
+        for x in 0..self.size() {
+            for y in 0..self.size() {
+                let bit = self.get(x, y).unwrap();
+                if !bit.is_functional() {
+                    if mask_fn(x, y) {
+                        self.put(x, y, bit.invert());
+                    }
+                }
+            }
+        }
+    }
+
     pub fn all_functional_patterns(&mut self) {
         self.finder_patterns();
         self.separators_patterns();
@@ -417,64 +431,115 @@ impl QrCode {
         }
     }
 
+    // pub fn fill(&mut self, bits: &Vec<Bit>) {
+    //     let mut x = self.size() as usize - 1;
+    //     let mut y = self.size() as usize - 1;
+    //     let mut up = true;
+    //
+    //     let mut i = 0;
+    //
+    //     for bit in bits {
+    //         // println!("{}", &self);
+    //         loop {
+    //             match up {
+    //                 true => {
+    //                     // if we are at the top, go down and change column
+    //                     if y <= 0 {
+    //                         up = false;
+    //                         x -= 1;
+    //                         // skip the timing pattern
+    //                         if x == 7 {
+    //                             x -= 1;
+    //                         }
+    //                         y = 0;
+    //                     } else {
+    //                         if i % 2 == 0 {
+    //                             x -= 1;
+    //                         } else {
+    //                             x += 1;
+    //                             y -= 1;
+    //                         }
+    //                         i += 1;
+    //                     }
+    //                 }
+    //                 false => {
+    //                     // if we are at the bottom, go up and change column
+    //                     if y >= self.size() as usize - 1 {
+    //                         up = true;
+    //                         x -= 1;
+    //                         // skip the timing pattern
+    //                         if x == 7 {
+    //                             x -= 1;
+    //                         }
+    //                         y = self.size() as usize - 1;
+    //                     } else {
+    //                         if i % 2 == 0 && x != 0 {
+    //                             x -= 1;
+    //                         } else {
+    //                             x += 1;
+    //                             y += 1;
+    //                         }
+    //                         i += 1;
+    //                     }
+    //                 }
+    //             }
+    //
+    //             if !self.get(x as u32, y as u32).unwrap().is_functional() {
+    //                 break;
+    //             }
+    //         }
+    //
+    //         self.put(x as u32, y as u32, *bit);
+    //     }
+    // }
+
     pub fn fill(&mut self, bits: &Vec<Bit>) {
-        let mut x = self.size() as usize - 1;
-        let mut y = self.size() as usize - 1;
-        let mut up = true;
+        let n = self.size() as usize;
+        let mut bit_iter = bits.iter();
+        let mut col = n - 1;
+        // The filling direction alternates: true = upward (bottom-to-top), false = downward.
+        let mut upward = true;
 
-        let mut i = 0;
-
-        for bit in bits {
-            loop {
-                match up {
-                    true => {
-                        // if we are at the top, go down and change column
-                        if y <= 0 {
-                            up = false;
-                            x -= 1;
-                            // skip the timing pattern
-                            if x == 7 {
-                                x -= 1;
-                            }
-                            y = 0;
-                        } else {
-                            if i % 2 == 0 {
-                                x -= 1;
-                            } else {
-                                x += 1;
-                                y -= 1;
-                            }
-                            i += 1;
-                        }
-                    }
-                    false => {
-                        // if we are at the bottom, go up and change column
-                        if y >= self.size() as usize - 1 {
-                            up = true;
-                            x -= 1;
-                            // skip the timing pattern
-                            if x == 7 {
-                                x -= 1;
-                            }
-                            y = self.size() as usize - 1;
-                        } else {
-                            if i % 2 == 0 {
-                                x -= 1;
-                            } else {
-                                x += 1;
-                                y += 1;
-                            }
-                            i += 1;
-                        }
-                    }
-                }
-
-                if !self.get(x as u32, y as u32).unwrap().is_functional() {
-                    break;
-                }
+        while col > 0 {
+            // Skip the vertical timing pattern column if needed.
+            if col == 7 {
+                col -= 1;
             }
 
-            self.put(x as u32, y as u32, *bit);
+            if upward {
+                // Process rows from bottom (n-1) up to top (0).
+                for row in (0..n).rev() {
+                    // In a pair of columns, we fill the module in col-0 and col-1
+                    for offset in 0..2 {
+                        let x = col - offset;
+                        // Only fill if the cell is not reserved for a function pattern.
+                        if !self.get(x as u32, row as u32).unwrap().is_functional() {
+                            if let Some(bit) = bit_iter.next() {
+                                self.put(x as u32, row as u32, *bit);
+                            } else {
+                                return;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Process rows from top (0) down to bottom (n-1).
+                for row in 0..n {
+                    for offset in 0..2 {
+                        let x = col - offset;
+                        if !self.get(x as u32, row as u32).unwrap().is_functional() {
+                            if let Some(bit) = bit_iter.next() {
+                                self.put(x as u32, row as u32, *bit);
+                            } else {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            // After finishing a pair of columns, flip the direction and move left two columns.
+            upward = !upward;
+            col -= 2;
         }
     }
 }
@@ -536,25 +601,48 @@ mod tests {
 
     #[test]
     fn get_returns_correct_bit() {
-        let qr = QrCode::new(1, EcLevel::L, 1, Encoding::Alphanumeric).unwrap();
+        let qr = QrCode::new(
+            1,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         assert!(matches!(qr.get(0, 0), Some(Zero(_))));
     }
 
     #[test]
     fn get_returns_none_for_out_of_bounds() {
-        let qr = QrCode::new(1, EcLevel::L, 1, Encoding::Alphanumeric).unwrap();
+        let qr = QrCode::new(
+            1,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         assert_eq!(qr.get(100, 100), None);
     }
 
     #[test]
     fn new_returns_error_for_invalid_version() {
-        let result = QrCode::new(41, EcLevel::L, 1, Encoding::Alphanumeric);
+        let result = QrCode::new(
+            41,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        );
         assert!(result.is_err());
     }
 
     #[test]
     fn new_creates_qrcode_with_correct_size() {
-        let qr = QrCode::new(1, EcLevel::L, 1, Encoding::Alphanumeric).unwrap();
+        let qr = QrCode::new(
+            1,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         assert_eq!(qr.size(), 21);
     }
 
@@ -566,14 +654,26 @@ mod tests {
 
     #[test]
     fn new_creates_qrcode_with_valid_version() {
-        let qr = QrCode::new(10, EcLevel::M, 1, Encoding::Alphanumeric).unwrap();
+        let qr = QrCode::new(
+            10,
+            EcLevel::M,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         assert_eq!(qr.version, 10);
         assert_eq!(qr.size(), 57);
     }
 
     #[test]
     fn new_creates_qrcode_with_correct_ec_level() {
-        let qr = QrCode::new(5, EcLevel::Q, 1, Encoding::Alphanumeric).unwrap();
+        let qr = QrCode::new(
+            5,
+            EcLevel::Q,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         match qr.ec_level {
             EcLevel::Q => assert!(true),
             _ => assert!(false, "Expected EcLevel::Q"),
@@ -582,20 +682,36 @@ mod tests {
 
     #[test]
     fn new_creates_qrcode_with_correct_data_size() {
-        let qr = QrCode::new(2, EcLevel::H, 1, Encoding::Alphanumeric).unwrap();
+        let qr = QrCode::new(
+            2,
+            EcLevel::H,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         assert_eq!(qr.data.len(), 625);
     }
 
     #[test]
     fn new_returns_error_for_zero_version() {
-        let result = QrCode::new(0, EcLevel::L, 1, Encoding::Alphanumeric);
+        let result = QrCode::new(
+            0,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        );
         assert!(result.is_err());
         assert_eq!(result.err(), Some("Invalid version.".to_string()));
     }
 
     #[test]
     fn new_returns_error_for_negative_version() {
-        let result = QrCode::new(-1i8 as u8, EcLevel::L, 1, Encoding::Alphanumeric);
+        let result = QrCode::new(
+            -1i8 as u8,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        );
         assert!(result.is_err());
         assert_eq!(result.err(), Some("Invalid version.".to_string()));
     }
@@ -622,7 +738,13 @@ mod tests {
 
     #[test]
     fn finder_patterns_creates_correct_patterns() {
-        let mut qr = QrCode::new(1, EcLevel::L, 1, Encoding::Alphanumeric).unwrap();
+        let mut qr = QrCode::new(
+            1,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         qr.finder_patterns();
         let expected_pattern = [
             (0, 0),
@@ -657,7 +779,13 @@ mod tests {
 
     #[test]
     fn finder_patterns_handles_minimum_size() {
-        let mut qr = QrCode::new(1, EcLevel::L, 1, Encoding::Alphanumeric).unwrap();
+        let mut qr = QrCode::new(
+            1,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         qr.finder_patterns();
         assert!(matches!(qr.get(0, 0), Some(One(_))));
         assert!(matches!(qr.get(20, 20), Some(Zero(_))));
@@ -665,7 +793,13 @@ mod tests {
 
     #[test]
     fn finder_patterns_handles_maximum_size() {
-        let mut qr = QrCode::new(40, EcLevel::L, 1, Encoding::Alphanumeric).unwrap();
+        let mut qr = QrCode::new(
+            40,
+            EcLevel::L,
+            MaskPattern::Checkerboard,
+            Encoding::Alphanumeric,
+        )
+        .unwrap();
         qr.finder_patterns();
         assert!(matches!(qr.get(0, 0), Some(One(_))));
         assert!(matches!(qr.get(176, 176), Some(Zero(_))));

@@ -9,44 +9,46 @@ pub enum EcLevel {
 impl EcLevel {
     pub fn ordinal(&self) -> u8 {
         match self {
-            EcLevel::H => 0,
-            EcLevel::Q => 1,
-            EcLevel::M => 2,
-            EcLevel::L => 3,
+            EcLevel::L => 0,
+            EcLevel::M => 1,
+            EcLevel::Q => 2,
+            EcLevel::H => 3,
         }
     }
 }
 
 pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<u8> {
     let ec_level = ec_level.ordinal();
-    let (group1, blocks1, group2, blocks2) =
-        DATA_BYTES_PER_BLOCK[version as usize][ec_level as usize];
-    let group1_count = blocks1 * group1;
-    let group2_count = blocks2 * group2;
-    let codewords = (group1_count + group2_count) as u32;
+    let (block_1_size, block_1_count, block_2_size, block_2_count) =
+        DATA_BYTES_PER_BLOCK[(version - 1) as usize][ec_level as usize];
 
-    let mut blocks = Vec::with_capacity(group1 + group2);
-    let (group1, group2) = data.split_at(group1_count + 1);
+    let group_1_size = block_1_count * block_1_size;
 
-    // assert_eq!(group1.len() + group2.len(), codewords as usize);
+    let mut blocks = Vec::with_capacity(block_1_count + block_2_count);
+    let (group_1, group_2) = data.split_at(group_1_size);
 
-    group1.chunks(group1_count).for_each(|block| {
+    group_1.chunks(block_1_size).for_each(|block| {
         blocks.push(block.to_vec());
     });
-    if group2_count != 0 {
-        group2.chunks(group2_count).for_each(|block| {
+    if block_2_size > 0 {
+        group_2.chunks(block_2_size).for_each(|block| {
             blocks.push(block.to_vec());
         });
     }
 
-    blocks
+    let ec_blocks = blocks
         .iter()
-        .flat_map(|block| {
+        .map(|block| {
             let ec_size = EC_BYTES_PER_BLOCK[version as usize][ec_level as usize];
             let generator_polynomial = GENERATOR_POLYNOMIALS[ec_size];
-            create_ec_for_block(block.clone(), ec_size, generator_polynomial)
+            create_ec_for_block(Vec::from(block.clone()), ec_size, generator_polynomial)
         })
-        .collect::<Vec<u8>>()
+        .collect::<Vec<Vec<u8>>>();
+
+    let blocks_vec = interleave(blocks);
+    let ec_vec = interleave(ec_blocks);
+
+    Vec::from([&blocks_vec[..], &ec_vec[..]].concat())
 }
 
 fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u8]) -> Vec<u8> {
@@ -70,6 +72,52 @@ fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u
     }
 
     codewords.split_off(data_len)
+}
+
+fn interleave(blocks: Vec<Vec<u8>>) -> Vec<u8> {
+    let mut result = Vec::new();
+    let max_len = blocks.iter().map(|block| block.len()).max().unwrap();
+    for i in 0..max_len {
+        for block in &blocks {
+            if i < block.len() {
+                result.push(block[i]);
+            }
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+mod interleave_tests {
+    use super::*;
+
+    #[test]
+    fn interleave_works_with_equal_length_blocks() {
+        let blocks = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
+        let result = interleave(blocks);
+        assert_eq!(result, vec![1, 4, 7, 2, 5, 8, 3, 6, 9]);
+    }
+
+    #[test]
+    fn interleave_works_with_unequal_length_blocks() {
+        let blocks = vec![vec![1, 2], vec![3, 4, 5], vec![6]];
+        let result = interleave(blocks);
+        assert_eq!(result, vec![1, 3, 6, 2, 4, 5]);
+    }
+
+    #[test]
+    fn interleave_works_with_empty_blocks() {
+        let blocks: Vec<Vec<u8>> = vec![vec![], vec![], vec![]];
+        let result = interleave(blocks);
+        assert_eq!(result, vec![]);
+    }
+
+    #[test]
+    fn interleave_works_with_single_block() {
+        let blocks = vec![vec![1, 2, 3]];
+        let result = interleave(blocks);
+        assert_eq!(result, vec![1, 2, 3]);
+    }
 }
 
 #[cfg(test)]

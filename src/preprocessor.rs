@@ -1,56 +1,41 @@
 use crate::bit::Bit;
 use crate::ec::*;
 use crate::encoding::*;
+use crate::mask::MaskPattern;
 use crate::qrcode::QrCode;
 
 pub struct Preprocessor {
-    data: Vec<Bit>,
     qrcode_bits: Vec<Bit>,
     encoding: Encoding,
     ec_level: EcLevel,
     version: u8,
+    mask_pattern: MaskPattern,
 }
 
 impl Preprocessor {
-    pub fn generate_qrcode(&self, mask_pattern: u8) -> QrCode {
-        assert!(mask_pattern <= 4, "Mask pattern is out of range.");
-
-        let mut res = QrCode::new(self.version, self.ec_level, mask_pattern, self.encoding)
-            .expect("QR code generation error");
+    pub fn generate_qrcode(&self) -> QrCode {
+        let mut res = QrCode::new(
+            self.version,
+            self.ec_level,
+            self.mask_pattern,
+            self.encoding,
+        )
+        .expect("QR code generation error");
 
         res.all_functional_patterns();
         res.fill(&self.qrcode_bits);
+        res.apply_mask();
 
         res
     }
 
-    fn check_encoding(data: &str, encoding: &Encoding) -> bool {
-        match encoding {
-            Encoding::Numeric => data.chars().all(char::is_numeric),
-            Encoding::Alphanumeric => data.chars().all(char::is_alphanumeric),
-            Encoding::Byte => true,
-            Encoding::Kanji => data.chars().all(kanji::is_kanji),
-        }
-    }
-
-    fn infer_encoding(data: &str) -> Encoding {
-        if Preprocessor::check_encoding(data, &Encoding::Numeric) {
-            Encoding::Numeric
-        } else if Preprocessor::check_encoding(data, &Encoding::Alphanumeric) {
-            Encoding::Alphanumeric
-        } else if Preprocessor::check_encoding(data, &Encoding::Kanji) {
-            Encoding::Kanji
-        } else {
-            Encoding::Byte
-        }
-    }
-
-    pub fn new(data: &str, encoding: Encoding, ec_level: EcLevel) -> Preprocessor {
-        assert!(
-            Preprocessor::check_encoding(data, &encoding),
-            "Encoding does not match the one of data."
-        );
-        let mut data = data.clone().as_bytes().to_vec();
+    pub fn new(
+        data: &str,
+        encoding: Encoding,
+        ec_level: EcLevel,
+        mask_pattern: MaskPattern,
+    ) -> Preprocessor {
+        let mut bits = encoding.encode(data).unwrap();
 
         let table = Self::table_from_encoding(encoding);
 
@@ -59,8 +44,10 @@ impl Preprocessor {
             .skip(ec_level.ordinal() as usize)
             .step_by(4)
             .enumerate()
-            .find(|(i, &size)| data.len() <= size as usize)
+            .find(|(_, &size)| data.len() <= size as usize)
             .expect("Not enough space.");
+
+        let version = version + 1;
 
         let sizes = match ec_level {
             EcLevel::H => SIZE_EC_H,
@@ -69,37 +56,34 @@ impl Preprocessor {
             EcLevel::L => SIZE_EC_L,
         };
 
-        let size = sizes[version - 1];
+        let size = (sizes[version - 1] * 8) as usize;
 
-        if data.len() < size as usize {
-            data.append(&mut vec![0; size as usize - data.len()]);
-        }
-
-        let mut qrcode_bits = mod_indicator(&encoding);
         let mut char_count = Bit::from(
             data.len() as u32,
             Self::char_count(version as u8, encoding),
             false,
             false,
         );
-        let mut bits = to_bits_array(&data);
-        let mut error_correction = Bit::bits(&error_correction(&data, version as u8, &ec_level));
+
+        if bits.len() < size {
+            bits.append(&mut vec![Bit::Zero(false); size - bits.len()]);
+        }
+
+        let mut qrcode_bits = encoding.mod_indicator();
+        let bytes = Bit::bytes(&bits);
+        let mut error_correction = Bit::bits(&error_correction(&bytes, version as u8, &ec_level));
 
         qrcode_bits.append(&mut char_count);
         qrcode_bits.append(&mut bits);
         qrcode_bits.append(&mut error_correction);
 
         Preprocessor {
-            data: Bit::bits(&data),
             qrcode_bits,
             encoding,
             ec_level,
             version: version as u8,
+            mask_pattern,
         }
-    }
-
-    pub fn new_inferred(data: &str, ec_level: EcLevel) -> Preprocessor {
-        Self::new(data, Preprocessor::infer_encoding(data), ec_level)
     }
 
     fn table_from_encoding(encoding: Encoding) -> &'static [u32; 160] {
