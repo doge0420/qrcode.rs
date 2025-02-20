@@ -49,4 +49,11 @@ impl Bit {
         }
         bits
     }
+
+    pub fn invert(&self) -> Bit {
+        match self {
+            Bit::One(val) => Bit::Zero(*val),
+            Bit::Zero(val) => Bit::One(*val),
+        }
+    }
 }

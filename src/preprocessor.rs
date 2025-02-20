@@ -1,94 +1,151 @@
 use crate::bit::Bit;
 use crate::ec::*;
 use crate::encoding::*;
+use crate::mask::MaskPattern;
 use crate::qrcode::QrCode;
 
-struct Preprocessor<'a> {
-    data: &'a str,
+pub struct Preprocessor {
     qrcode_bits: Vec<Bit>,
     encoding: Encoding,
+    ec_level: EcLevel,
+    version: u8,
+    mask_pattern: MaskPattern,
 }
 
-impl<'a> Preprocessor<'a> {
-    pub fn generate_qrcode(&self, mask_pattern: u8) -> QrCode {
-        assert!(mask_pattern <= 4, "Mask pattern is out of range.");
+impl Preprocessor {
+    pub fn generate_qrcode(&self) -> QrCode {
+        let mut res = QrCode::new(
+            self.version,
+            self.ec_level,
+            self.mask_pattern,
+            self.encoding,
+        )
+        .expect("QR code generation error");
 
-        let table = match self.encoding {
-            Encoding::Numeric => NUMERIC_SIZE,
-            Encoding::Alphanumeric => ALPHANUMERIC_SIZE,
-            Encoding::Byte => BYTE_SIZE,
-            Encoding::Kanji => KANJI_SIZE,
-        };
+        res.all_functional_patterns();
+        res.fill(&self.qrcode_bits);
+        res.apply_mask();
 
-        let table_index = *table
+        res
+    }
+
+    pub fn new(
+        data: &str,
+        encoding: Encoding,
+        ec_level: EcLevel,
+        mask_pattern: MaskPattern,
+    ) -> Preprocessor {
+        let mut bits = encoding.encode(data).unwrap();
+
+        let table = Self::table_from_encoding(encoding);
+
+        let (version, _) = table
             .iter()
-            .find(|&&size| self.data.len() <= size as usize)
+            .skip(ec_level.ordinal() as usize)
+            .step_by(4)
+            .enumerate()
+            .find(|(_, &size)| data.len() <= size as usize)
             .expect("Not enough space.");
 
-        let ec_level = Self::ec_from_index(table_index);
-        let version = table_index.div_euclid(4);
+        let version = version + 1;
 
-        QrCode::new(version as u8, ec_level, mask_pattern, self.encoding)
-            .expect("QR code generation error")
-    }
+        let sizes = match ec_level {
+            EcLevel::H => SIZE_EC_H,
+            EcLevel::Q => SIZE_EC_Q,
+            EcLevel::M => SIZE_EC_M,
+            EcLevel::L => SIZE_EC_L,
+        };
 
-    fn check_encoding(data: &'a str, encoding: &Encoding) -> bool {
-        match encoding {
-            Encoding::Numeric => data.chars().all(char::is_numeric),
-            Encoding::Alphanumeric => data.chars().all(char::is_alphanumeric),
-            Encoding::Byte => true,
-            Encoding::Kanji => data.chars().all(kanji::is_kanji),
-        }
-    }
+        let size = (sizes[version - 1] * 8) as usize;
 
-    fn infer_encoding(data: &'a str) -> Encoding {
-        if Preprocessor::check_encoding(data, &Encoding::Numeric) {
-            Encoding::Numeric
-        } else if Preprocessor::check_encoding(data, &Encoding::Alphanumeric) {
-            Encoding::Alphanumeric
-        } else if Preprocessor::check_encoding(data, &Encoding::Kanji) {
-            Encoding::Kanji
-        } else {
-            Encoding::Byte
-        }
-    }
-
-    pub fn new(data: &'a str, encoding: Encoding) -> Preprocessor<'a> {
-        assert!(
-            Preprocessor::check_encoding(data, &encoding),
-            "Encoding does not match the one of data."
+        let mut char_count = Bit::from(
+            data.len() as u32,
+            Self::char_count(version as u8, encoding),
+            false,
+            false,
         );
 
-        let mut qrcode_bits = mod_indicator(&encoding);
-        let mut bits = to_bits(data);
-        let mut error_correction = error_correction(data);
+        if bits.len() < size {
+            bits.append(&mut vec![Bit::Zero(false); size - bits.len()]);
+        }
 
+        let mut qrcode_bits = encoding.mod_indicator();
+        let bytes = Bit::bytes(&bits);
+        let mut error_correction = Bit::bits(&error_correction(&bytes, version as u8, &ec_level));
+
+        qrcode_bits.append(&mut char_count);
         qrcode_bits.append(&mut bits);
         qrcode_bits.append(&mut error_correction);
 
         Preprocessor {
-            data,
             qrcode_bits,
             encoding,
+            ec_level,
+            version: version as u8,
+            mask_pattern,
         }
     }
 
-    pub fn new_inferred(data: &'a str) -> Preprocessor<'a> {
-        Self::new(data, Preprocessor::infer_encoding(data))
+    fn table_from_encoding(encoding: Encoding) -> &'static [u32; 160] {
+        match encoding {
+            Encoding::Numeric => &NUMERIC_SIZE,
+            Encoding::Alphanumeric => &ALPHANUMERIC_SIZE,
+            Encoding::Byte => &BYTE_SIZE,
+            Encoding::Kanji => &KANJI_SIZE,
+        }
     }
 
-    fn ec_from_index(index: u32) -> EcLevel {
-        let rem = index % 4;
-
-        match rem {
-            0 => EcLevel::L,
-            1 => EcLevel::M,
-            2 => EcLevel::Q,
-            3 => EcLevel::Q,
-            _ => unreachable!(),
+    fn char_count(version: u8, encoding: Encoding) -> u8 {
+        let index = match version {
+            1_u8..=9_u8 => 0,
+            10_u8..=26_u8 => 1,
+            27u8..=40u8 => 2,
+            _ => panic!("Invalid version."),
+        };
+        match encoding {
+            Encoding::Numeric => NUMERIC_CHAR_COUNT[index],
+            Encoding::Alphanumeric => ALPHANUMERIC_CHAR_COUNT[index],
+            Encoding::Byte => BYTE_CHAR_COUNT[index],
+            Encoding::Kanji => KANJI_CHAR_COUNT[index],
         }
     }
 }
+
+/// 0: version 1 - 9, 1: version 10 - 26, 2: version 27 - 40
+static NUMERIC_CHAR_COUNT: [u8; 3] = [10, 12, 14];
+
+/// 0: version 1 - 9, 1: version 10 - 26, 2: version 27 - 40
+static ALPHANUMERIC_CHAR_COUNT: [u8; 3] = [9, 11, 13];
+
+/// 0: version 1 - 9, 1: version 10 - 26, 2: version 27 - 40
+static BYTE_CHAR_COUNT: [u8; 3] = [8, 16, 16];
+
+/// 0: version 1 - 9, 1: version 10 - 26, 2: version 27 - 40
+static KANJI_CHAR_COUNT: [u8; 3] = [8, 10, 12];
+
+static SIZE_EC_L: [u32; 40] = [
+    19, 34, 55, 80, 108, 136, 156, 194, 232, 274, 324, 370, 428, 461, 523, 589, 647, 721, 795, 861,
+    932, 1006, 1094, 1174, 1276, 1370, 1468, 1531, 1631, 1735, 1843, 1955, 2071, 2191, 2306, 2434,
+    2566, 2702, 2812, 2956,
+];
+
+static SIZE_EC_M: [u32; 40] = [
+    16, 28, 44, 64, 86, 108, 124, 154, 182, 216, 254, 290, 334, 365, 415, 453, 507, 563, 627, 669,
+    714, 782, 860, 914, 1000, 1062, 1128, 1193, 1267, 1373, 1455, 1541, 1631, 1725, 1812, 1914,
+    1992, 2102, 2216, 2334,
+];
+
+static SIZE_EC_Q: [u32; 40] = [
+    13, 22, 34, 48, 62, 76, 88, 110, 132, 154, 180, 206, 244, 261, 295, 325, 367, 397, 445, 485,
+    512, 568, 614, 664, 718, 754, 808, 871, 911, 985, 1033, 1115, 1171, 1231, 1286, 1354, 1426,
+    1502, 1582, 1666,
+];
+
+static SIZE_EC_H: [u32; 40] = [
+    9, 16, 26, 36, 46, 60, 66, 86, 100, 122, 140, 158, 180, 197, 223, 253, 283, 313, 341, 385, 406,
+    442, 464, 514, 538, 596, 628, 661, 701, 745, 793, 845, 901, 961, 986, 1054, 1096, 1142, 1222,
+    1276,
+];
 
 static NUMERIC_SIZE: [u32; 160] = [
     41, 34, 27, 17, 77, 63, 48, 34, 127, 101, 77, 58, 187, 149, 111, 82, 255, 202, 144, 106, 322,
