@@ -10,7 +10,6 @@ mod format;
 mod mask;
 mod preprocessor;
 mod qrcode;
-mod types;
 
 fn main() {
     let data = "HELLO WORLD";

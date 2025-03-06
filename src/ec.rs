@@ -25,17 +25,24 @@ pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<
     let group_1_size = block_1_count * block_1_size;
 
     let mut blocks = Vec::with_capacity(block_1_count + block_2_count);
-    let (group_1, group_2) = data.split_at(group_1_size);
+    
+    if group_1_size < data.len() {
+        let (group_1, group_2) = data.split_at(group_1_size);
 
-    group_1.chunks(block_1_size).for_each(|block| {
-        blocks.push(block.to_vec());
-    });
-    if block_2_size > 0 {
-        group_2.chunks(block_2_size).for_each(|block| {
+        group_1.chunks(block_1_size).for_each(|block| {
+            blocks.push(block.to_vec());
+        });
+        if block_2_size > 0 {
+            group_2.chunks(block_2_size).for_each(|block| {
+                blocks.push(block.to_vec());
+            });
+        }
+    } else {
+        data.chunks(block_1_size).for_each(|block| {
             blocks.push(block.to_vec());
         });
     }
-
+        
     let ec_blocks = blocks
         .iter()
         .map(|block| {
@@ -45,10 +52,7 @@ pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<
         })
         .collect::<Vec<Vec<u8>>>();
 
-    let blocks_vec = interleave(blocks);
-    let ec_vec = interleave(ec_blocks);
-
-    Vec::from([&blocks_vec[..], &ec_vec[..]].concat())
+    interleave(ec_blocks)
 }
 
 fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u8]) -> Vec<u8> {

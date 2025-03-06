@@ -39,7 +39,7 @@ impl Preprocessor {
 
         let table = Self::table_from_encoding(encoding);
 
-        let (version, _) = table
+        let (v, _) = table
             .iter()
             .skip(ec_level.ordinal() as usize)
             .step_by(4)
@@ -47,7 +47,7 @@ impl Preprocessor {
             .find(|(_, &size)| data.len() <= size as usize)
             .expect("Not enough space.");
 
-        let version = version + 1;
+        let version = v + 1;
 
         let sizes = match ec_level {
             EcLevel::H => SIZE_EC_H,
@@ -56,7 +56,7 @@ impl Preprocessor {
             EcLevel::L => SIZE_EC_L,
         };
 
-        let size = (sizes[version - 1] * 8) as usize;
+        let size = sizes[version - 1] as usize;
 
         let mut char_count = Bit::from(
             data.len() as u32,
@@ -76,6 +76,17 @@ impl Preprocessor {
         qrcode_bits.append(&mut char_count);
         qrcode_bits.append(&mut bits);
         qrcode_bits.append(&mut error_correction);
+
+        for bit in &qrcode_bits {
+            if !bit.is_functional() {
+                if bit.value() {
+                    print!("1");
+                } else {
+                    print!("0");
+                }
+            }
+        }
+        println!();
 
         Preprocessor {
             qrcode_bits,
