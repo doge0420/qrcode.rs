@@ -18,6 +18,24 @@ impl EcLevel {
 }
 
 pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<u8> {
+    let blocks = groups(data, version, ec_level);
+
+    let ec_size = EC_BYTES_PER_BLOCK[version as usize][ec_level.ordinal() as usize];
+    let ec_blocks = blocks
+        .iter()
+        .map(|block| {
+            create_ec_for_block(
+                Vec::from(block.clone()),
+                ec_size,
+                GENERATOR_POLYNOMIALS[ec_size],
+            )
+        })
+        .collect::<Vec<Vec<u8>>>();
+
+    interleave(ec_blocks)
+}
+
+pub fn groups(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<Vec<u8>> {
     let ec_level = ec_level.ordinal();
     let (block_1_size, block_1_count, block_2_size, block_2_count) =
         DATA_BYTES_PER_BLOCK[(version - 1) as usize][ec_level as usize];
@@ -25,7 +43,7 @@ pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<
     let group_1_size = block_1_count * block_1_size;
 
     let mut blocks = Vec::with_capacity(block_1_count + block_2_count);
-    
+
     if group_1_size < data.len() {
         let (group_1, group_2) = data.split_at(group_1_size);
 
@@ -42,17 +60,8 @@ pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<
             blocks.push(block.to_vec());
         });
     }
-        
-    let ec_blocks = blocks
-        .iter()
-        .map(|block| {
-            let ec_size = EC_BYTES_PER_BLOCK[version as usize][ec_level as usize];
-            let generator_polynomial = GENERATOR_POLYNOMIALS[ec_size];
-            create_ec_for_block(Vec::from(block.clone()), ec_size, generator_polynomial)
-        })
-        .collect::<Vec<Vec<u8>>>();
 
-    interleave(ec_blocks)
+    blocks
 }
 
 fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u8]) -> Vec<u8> {
@@ -78,7 +87,7 @@ fn create_ec_for_block(block: Vec<u8>, ec_size: usize, generator_polynomial: &[u
     codewords.split_off(data_len)
 }
 
-fn interleave(blocks: Vec<Vec<u8>>) -> Vec<u8> {
+pub fn interleave(blocks: Vec<Vec<u8>>) -> Vec<u8> {
     let mut result = Vec::new();
     let max_len = blocks.iter().map(|block| block.len()).max().unwrap();
     for i in 0..max_len {

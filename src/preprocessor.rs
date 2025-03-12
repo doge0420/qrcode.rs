@@ -62,7 +62,7 @@ impl Preprocessor {
             data.len() as u32,
             Self::char_count(version as u8, encoding),
             false,
-            false,
+            true,
         );
 
         if bits.len() < size {
@@ -74,7 +74,12 @@ impl Preprocessor {
         let mut error_correction = Bit::bits(&error_correction(&bytes, version as u8, &ec_level));
 
         qrcode_bits.append(&mut char_count);
-        qrcode_bits.append(&mut bits);
+        qrcode_bits.append(&mut Bit::bits(&interleave(groups(
+            &bytes,
+            version as u8,
+            &ec_level,
+        ))));
+
         qrcode_bits.append(&mut error_correction);
 
         for bit in &qrcode_bits {

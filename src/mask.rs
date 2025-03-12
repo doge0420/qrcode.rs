@@ -17,10 +17,10 @@ impl MaskPattern {
             MaskPattern::Horizontal => |_, y| y % 2 == 0,
             MaskPattern::Vertical => |x, _| x % 3 == 0,
             MaskPattern::Diagonal => |x, y| (x + y) % 3 == 0,
-            MaskPattern::LargeCheckerboard => |x, y| (x / 2 + y / 3) % 2 == 0,
-            MaskPattern::Fields => |x, y| (x * y) % 2 + (x * y) % 3 == 0,
-            MaskPattern::Diamonds => |x, y| ((x * y) % 2 + (x * y) % 3) % 2 == 0,
-            MaskPattern::Meadow => |x, y| ((x + y) % 2 + (x * y) % 3) % 2 == 0,
+            MaskPattern::LargeCheckerboard => |x, y| ((x / 2) + (y / 3)) % 2 == 0,
+            MaskPattern::Fields => |x, y| ((x * y) % 2) + ((x * y) % 3) == 0,
+            MaskPattern::Diamonds => |x, y| (((x * y) % 2) + ((x * y) % 3)) % 2 == 0,
+            MaskPattern::Meadow => |x, y| (((x + y) % 2) + ((x * y) % 3)) % 2 == 0,
         }
     }
 
