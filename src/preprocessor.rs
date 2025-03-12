@@ -37,6 +37,19 @@ impl Preprocessor {
     ) -> Preprocessor {
         let mut bits = encoding.encode(data).unwrap();
 
+        bits.iter().enumerate().for_each(|(i, bit)| {
+            if bit.value() {
+                print!("1")
+            } else {
+                print!("0")
+            }
+
+            if (i + 1) % 11 == 0 {
+                print!(" ");
+            }
+        });
+        println!();
+
         let table = Self::table_from_encoding(encoding);
 
         let (v, _) = table
@@ -49,43 +62,42 @@ impl Preprocessor {
 
         let version = v + 1;
 
-        let sizes = match ec_level {
-            EcLevel::H => SIZE_EC_H,
-            EcLevel::Q => SIZE_EC_Q,
-            EcLevel::M => SIZE_EC_M,
-            EcLevel::L => SIZE_EC_L,
-        };
+        // let sizes_ec = match ec_level {
+        //     EcLevel::H => SIZE_EC_H,
+        //     EcLevel::Q => SIZE_EC_Q,
+        //     EcLevel::M => SIZE_EC_M,
+        //     EcLevel::L => SIZE_EC_L,
+        // };
 
-        let size = sizes[version - 1] as usize;
+        // let ec_bits_count = sizes_ec[version - 1] as usize;
+        let char_count = Self::char_count(version as u8, encoding);
 
-        let mut char_count = Bit::from(
-            data.len() as u32,
-            Self::char_count(version as u8, encoding),
-            false,
-            false,
-        );
+        let mut char_count_to_bits = Bit::from(data.len() as u32, char_count, false, false);
 
-        if bits.len() < size {
-            bits.append(&mut vec![Bit::Zero(false); size - bits.len()]);
+        if bits.len() < char_count as usize {
+            bits.append(&mut vec![
+                Bit::Zero(false);
+                (char_count as usize) - bits.len()
+            ]);
         }
 
-        let mut qrcode_bits = encoding.mod_indicator();
+        let mut qrcode_bits = vec![];
+        let mut mod_indicator_bits = encoding.mod_indicator();
         let bytes = Bit::bytes(&bits);
         let mut error_correction = Bit::bits(&error_correction(&bytes, version as u8, &ec_level));
 
-        qrcode_bits.append(&mut char_count);
+        qrcode_bits.append(&mut mod_indicator_bits);
+        qrcode_bits.append(&mut char_count_to_bits);
         qrcode_bits.append(&mut bits);
         qrcode_bits.append(&mut error_correction);
 
-        for bit in &qrcode_bits {
-            if !bit.is_functional() {
-                if bit.value() {
-                    print!("1");
-                } else {
-                    print!("0");
-                }
+        qrcode_bits.iter().enumerate().for_each(|(i, bit)| {
+            if bit.value() {
+                print!("1")
+            } else {
+                print!("0")
             }
-        }
+        });
         println!();
 
         Preprocessor {
