@@ -51,34 +51,34 @@ impl Encoding {
         match self {
             Encoding::Numeric => {
                 vec![
-                    Bit::Zero(false),
-                    Bit::Zero(false),
-                    Bit::Zero(false),
                     Bit::One(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
                 ]
             }
             Encoding::Alphanumeric => {
                 vec![
                     Bit::Zero(false),
-                    Bit::Zero(false),
                     Bit::One(false),
+                    Bit::Zero(false),
                     Bit::Zero(false),
                 ]
             }
             Encoding::Byte => {
                 vec![
                     Bit::Zero(false),
-                    Bit::One(false),
                     Bit::Zero(false),
+                    Bit::One(false),
                     Bit::Zero(false),
                 ]
             }
             Encoding::Kanji => {
                 vec![
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
                     Bit::One(false),
-                    Bit::Zero(false),
-                    Bit::Zero(false),
-                    Bit::Zero(false),
                 ]
             }
         }
