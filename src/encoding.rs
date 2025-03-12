@@ -51,34 +51,34 @@ impl Encoding {
         match self {
             Encoding::Numeric => {
                 vec![
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
                     Bit::One(false),
-                    Bit::Zero(false),
-                    Bit::Zero(false),
-                    Bit::Zero(false),
                 ]
             }
             Encoding::Alphanumeric => {
                 vec![
                     Bit::Zero(false),
-                    Bit::One(false),
                     Bit::Zero(false),
+                    Bit::One(false),
                     Bit::Zero(false),
                 ]
             }
             Encoding::Byte => {
                 vec![
                     Bit::Zero(false),
-                    Bit::Zero(false),
                     Bit::One(false),
+                    Bit::Zero(false),
                     Bit::Zero(false),
                 ]
             }
             Encoding::Kanji => {
                 vec![
-                    Bit::Zero(false),
-                    Bit::Zero(false),
-                    Bit::Zero(false),
                     Bit::One(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
+                    Bit::Zero(false),
                 ]
             }
         }
@@ -111,10 +111,10 @@ impl Encoding {
                 .flat_map(|pair| {
                     if pair.len() == 2 {
                         let value = pair[0] * 45 + pair[1];
-                        Bit::from(value as u32, 11, false, false)
+                        Bit::from(value as u32, 11, false, true)
                     } else {
                         let value = pair[0];
-                        Bit::from(value as u32, 6, false, false)
+                        Bit::from(value as u32, 6, false, true)
                     }
                 })
                 .collect()),

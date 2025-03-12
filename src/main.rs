@@ -4,12 +4,14 @@ use crate::mask::MaskPattern;
 use crate::preprocessor::Preprocessor;
 
 mod bit;
+mod debug_utils;
 mod ec;
 mod encoding;
 mod format;
 mod mask;
 mod preprocessor;
 mod qrcode;
+mod tables;
 
 fn main() {
     let data = "HELLO WORLD";
