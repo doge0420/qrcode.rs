@@ -14,7 +14,7 @@ mod qrcode;
 mod tables;
 
 fn main() {
-    let data = "HELLO WORLD";
+    let data = "LA MERE A ADRIEN SUCE DES PIEDS";
     let preprocessor = Preprocessor::new(
         data,
         Encoding::Alphanumeric,

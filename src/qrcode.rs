@@ -494,25 +494,32 @@ impl QrCode {
     // }
 
     pub fn fill(&mut self, bits: &Vec<Bit>) {
-        let n = self.size() as usize;
+        let n = self.size() as isize;
         let mut bit_iter = bits.iter();
-        let mut col = n - 1;
-        // The filling direction alternates: true = upward (bottom-to-top), false = downward.
+        let mut col = n - 1; // using isize now
+                             // The filling direction alternates: true = upward, false = downward.
         let mut upward = true;
 
-        while col > 0 {
+        while col >= 0 {
             // Skip the vertical timing pattern column if needed.
-            if col == 7 {
+            if col == 6 {
                 col -= 1;
+                // If after skipping we go negative, break.
+                if col < 0 {
+                    break;
+                }
             }
 
+            // Determine how many columns to process:
+            // normally we process 2, but if col == 0 then only one column remains.
+            let cols_to_process = if col == 0 { 1 } else { 2 };
+
             if upward {
-                // Process rows from bottom (n-1) up to top (0).
+                // Process rows from bottom to top.
                 for row in (0..n).rev() {
-                    // In a pair of columns, we fill the module in col-0 and col-1
-                    for offset in 0..2 {
+                    for offset in 0..cols_to_process {
                         let x = col - offset;
-                        // Only fill if the cell is not reserved for a function pattern.
+                        // Skip if this cell is reserved.
                         if !self.get(x as u32, row as u32).unwrap().is_functional() {
                             if let Some(bit) = bit_iter.next() {
                                 self.put(x as u32, row as u32, *bit);
@@ -523,9 +530,9 @@ impl QrCode {
                     }
                 }
             } else {
-                // Process rows from top (0) down to bottom (n-1).
+                // Process rows from top to bottom.
                 for row in 0..n {
-                    for offset in 0..2 {
+                    for offset in 0..cols_to_process {
                         let x = col - offset;
                         if !self.get(x as u32, row as u32).unwrap().is_functional() {
                             if let Some(bit) = bit_iter.next() {
@@ -537,9 +544,9 @@ impl QrCode {
                     }
                 }
             }
-            // After finishing a pair of columns, flip the direction and move left two columns.
+
             upward = !upward;
-            col -= 2;
+            col -= cols_to_process;
         }
     }
 }

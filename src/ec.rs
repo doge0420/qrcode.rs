@@ -24,7 +24,7 @@ impl EcLevel {
 pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<u8> {
     let blocks = groups(data, version, ec_level);
 
-    let ec_size = EC_BYTES_PER_BLOCK[version as usize][ec_level.ordinal() as usize];
+    let ec_size = EC_BYTES_PER_BLOCK[(version - 1) as usize][ec_level.ordinal() as usize];
     let ec_blocks = blocks
         .iter()
         .map(|block| {
