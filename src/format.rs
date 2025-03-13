@@ -13,7 +13,7 @@ impl Bit {
             .collect()
     }
 
-    pub fn bits(data: &Vec<u8>) -> Vec<Bit> {
+    pub fn bits(data: &Vec<u8>, size: usize) -> Vec<Bit> {
         data.iter()
             .map(|byte| {
                 (0..8)
@@ -28,6 +28,7 @@ impl Bit {
                     .collect::<Vec<Bit>>()
             })
             .flatten()
+            .take(size)
             .collect()
     }
 }

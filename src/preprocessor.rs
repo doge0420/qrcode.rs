@@ -6,7 +6,8 @@ use crate::mask::MaskPattern;
 use crate::qrcode::QrCode;
 use crate::tables::{
     ALPHANUMERIC_CHAR_COUNT, ALPHANUMERIC_SIZE, BYTE_CHAR_COUNT, BYTE_SIZE, DATA_BYTES_PER_BLOCK,
-    KANJI_CHAR_COUNT, KANJI_SIZE, NUMERIC_CHAR_COUNT, NUMERIC_SIZE,
+    KANJI_CHAR_COUNT, KANJI_SIZE, NUMERIC_CHAR_COUNT, NUMERIC_SIZE, SIZE_EC_H, SIZE_EC_L,
+    SIZE_EC_M, SIZE_EC_Q,
 };
 
 pub struct Preprocessor {
@@ -81,10 +82,8 @@ impl Preprocessor {
         let bytes = Bit::bytes(&bits);
 
         let interleaved_bytes = interleave(groups(&bytes, version as u8, &ec_level));
-        let mut interleaved_bits = Bit::bits(&interleaved_bytes);
-
-        todo!("fix the conversion between bits and bytes (there are 0s that are taken which increases the length of the bits array)");
-
+        let mut interleaved_bits = Bit::bits(&interleaved_bytes, bits.len());
+        
         qrcode_bits.append(&mut mod_indicator_bits);
         qrcode_bits.append(&mut char_count_to_bits);
         qrcode_bits.append(&mut interleaved_bits);
@@ -120,7 +119,21 @@ impl Preprocessor {
             }
         }
 
-        let mut error_correction = Bit::bits(&error_correction(&bytes, version as u8, &ec_level));
+        let ec_sizes = match ec_level {
+            EcLevel::H => SIZE_EC_H,
+            EcLevel::Q => SIZE_EC_Q,
+            EcLevel::M => SIZE_EC_M,
+            EcLevel::L => SIZE_EC_L,
+        };
+        let ec_size = ec_sizes[version - 1] as usize;
+
+        let mut error_correction = Bit::bits(
+            &error_correction(&bytes, version as u8, &ec_level),
+            ec_size * 8,
+        );
+
+        debug_vec!(error_correction);
+
         qrcode_bits.append(&mut error_correction);
 
         debug_vec!(&qrcode_bits);
