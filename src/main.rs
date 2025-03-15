@@ -14,13 +14,9 @@ mod qrcode;
 mod tables;
 
 fn main() {
-    let data = "LA MERE A ADRIEN SUCE DES PIEDS";
-    let preprocessor = Preprocessor::new(
-        data,
-        Encoding::Alphanumeric,
-        EcLevel::M,
-        MaskPattern::Diagonal,
-    );
+    let data = "696969420";
+    let preprocessor =
+        Preprocessor::new(data, Encoding::Numeric, EcLevel::Q, MaskPattern::Diagonal);
     let qrcode = preprocessor.generate_qrcode();
 
     println!("{}", qrcode);

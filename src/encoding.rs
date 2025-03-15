@@ -86,13 +86,9 @@ impl Encoding {
 
     pub fn encode(&self, data: &str) -> Result<Vec<Bit>, String> {
         match self {
-            Encoding::Numeric => {
-                unimplemented!()
-            }
+            Encoding::Numeric => Encoding::encode_numeric(data),
             Encoding::Alphanumeric => Encoding::encode_alphanumeric(data),
-            Encoding::Byte => {
-                unimplemented!()
-            }
+            Encoding::Byte => Encoding::encode_byte(data),
             Encoding::Kanji => {
                 unimplemented!()
             }
@@ -137,5 +133,48 @@ impl Encoding {
             ':' => Ok(44),
             _ => Err(format!("Invalid character: {}", c)),
         }
+    }
+
+    fn encode_byte(data: &str) -> Result<Vec<Bit>, String> {
+        let bytes: Result<Vec<u8>, String> =
+            data.chars().map(|c| Self::char_to_iso_8859_1(c)).collect();
+
+        match bytes {
+            Ok(vec) => Ok(vec
+                .iter()
+                .flat_map(|byte| Bit::from(*byte as u32, 8, false, true))
+                .collect()),
+            Err(msg) => Err(msg),
+        }
+    }
+
+    fn char_to_iso_8859_1(c: char) -> Result<u8, String> {
+        if (c as u32) <= 0xFF {
+            Ok(c as u8)
+        } else {
+            Err(format!("Invalid character: {}", c))
+        }
+    }
+
+    fn encode_numeric(data: &str) -> Result<Vec<Bit>, String> {
+        let mut bits = vec![];
+        let mut i = 0;
+        while i < data.len() {
+            let mut value = 0;
+            for j in 0..3 {
+                if i + j < data.len() {
+                    let digit = data.chars().nth(i + j).unwrap();
+                    if digit < '0' || digit > '9' {
+                        return Err(format!("Invalid character: {}", digit));
+                    }
+                    value = value * 10 + (digit as u32 - '0' as u32);
+                } else {
+                    break;
+                }
+            }
+            bits.append(&mut Bit::from(value, 10, false, true));
+            i += 3;
+        }
+        Ok(bits)
     }
 }

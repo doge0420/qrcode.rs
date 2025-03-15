@@ -431,73 +431,12 @@ impl QrCode {
         }
     }
 
-    // pub fn fill(&mut self, bits: &Vec<Bit>) {
-    //     let mut x = self.size() as usize - 1;
-    //     let mut y = self.size() as usize - 1;
-    //     let mut up = true;
-    //
-    //     let mut i = 0;
-    //
-    //     for bit in bits {
-    //         // println!("{}", &self);
-    //         loop {
-    //             match up {
-    //                 true => {
-    //                     // if we are at the top, go down and change column
-    //                     if y <= 0 {
-    //                         up = false;
-    //                         x -= 1;
-    //                         // skip the timing pattern
-    //                         if x == 7 {
-    //                             x -= 1;
-    //                         }
-    //                         y = 0;
-    //                     } else {
-    //                         if i % 2 == 0 {
-    //                             x -= 1;
-    //                         } else {
-    //                             x += 1;
-    //                             y -= 1;
-    //                         }
-    //                         i += 1;
-    //                     }
-    //                 }
-    //                 false => {
-    //                     // if we are at the bottom, go up and change column
-    //                     if y >= self.size() as usize - 1 {
-    //                         up = true;
-    //                         x -= 1;
-    //                         // skip the timing pattern
-    //                         if x == 7 {
-    //                             x -= 1;
-    //                         }
-    //                         y = self.size() as usize - 1;
-    //                     } else {
-    //                         if i % 2 == 0 && x != 0 {
-    //                             x -= 1;
-    //                         } else {
-    //                             x += 1;
-    //                             y += 1;
-    //                         }
-    //                         i += 1;
-    //                     }
-    //                 }
-    //             }
-    //
-    //             if !self.get(x as u32, y as u32).unwrap().is_functional() {
-    //                 break;
-    //             }
-    //         }
-    //
-    //         self.put(x as u32, y as u32, *bit);
-    //     }
-    // }
-
     pub fn fill(&mut self, bits: &Vec<Bit>) {
         let n = self.size() as isize;
         let mut bit_iter = bits.iter();
-        let mut col = n - 1; // using isize now
-                             // The filling direction alternates: true = upward, false = downward.
+        let mut col = n - 1;
+
+        // The filling direction alternates: true = upward, false = downward.
         let mut upward = true;
 
         while col >= 0 {
