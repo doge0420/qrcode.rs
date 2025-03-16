@@ -6,8 +6,7 @@ use crate::mask::MaskPattern;
 use crate::qrcode::QrCode;
 use crate::tables::{
     ALPHANUMERIC_CHAR_COUNT, ALPHANUMERIC_SIZE, BYTE_CHAR_COUNT, BYTE_SIZE, DATA_BYTES_PER_BLOCK,
-    KANJI_CHAR_COUNT, KANJI_SIZE, NUMERIC_CHAR_COUNT, NUMERIC_SIZE, SIZE_EC_H, SIZE_EC_L,
-    SIZE_EC_M, SIZE_EC_Q,
+    EC_BYTES_PER_BLOCK, KANJI_CHAR_COUNT, KANJI_SIZE, NUMERIC_CHAR_COUNT, NUMERIC_SIZE,
 };
 
 pub struct Preprocessor {
@@ -50,7 +49,7 @@ impl Preprocessor {
                 print!("0")
             }
 
-            if (i + 1) % 11 == 0 {
+            if (i + 1) % 8 == 0 {
                 print!(" ");
             }
         });
@@ -119,24 +118,24 @@ impl Preprocessor {
             }
         }
 
-        let ec_sizes = match ec_level {
-            EcLevel::H => SIZE_EC_H,
-            EcLevel::Q => SIZE_EC_Q,
-            EcLevel::M => SIZE_EC_M,
-            EcLevel::L => SIZE_EC_L,
-        };
-        let ec_size = ec_sizes[version - 1] as usize;
-
-        let mut error_correction = Bit::bits(
-            &error_correction(&Bit::bytes(&qrcode_bits), version as u8, &ec_level),
-            ec_size * 8,
-        );
-
-        debug_vec!(error_correction);
-
-        qrcode_bits.append(&mut error_correction);
+        let cw_per_block = EC_BYTES_PER_BLOCK[version - 1][ec_level.ordinal() as usize];
 
         debug_vec!(&qrcode_bits);
+
+        todo!("compute the correct lenght for the number of error correction bits");
+        let mut error_correction = Bit::bits(
+            &error_correction(
+                &Bit::bytes(&qrcode_bits),
+                version as u8,
+                &ec_level,
+                cw_per_block,
+            ),
+            cw_per_block * 8,
+        );
+
+        debug_vec!(&error_correction);
+
+        qrcode_bits.append(&mut error_correction);
 
         Preprocessor {
             qrcode_bits,

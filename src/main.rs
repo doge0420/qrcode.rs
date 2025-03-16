@@ -14,9 +14,8 @@ mod qrcode;
 mod tables;
 
 fn main() {
-    let data = "696969420";
-    let preprocessor =
-        Preprocessor::new(data, Encoding::Numeric, EcLevel::Q, MaskPattern::Diagonal);
+    let data = "website @ https://example.com !";
+    let preprocessor = Preprocessor::new(data, Encoding::Byte, EcLevel::Q, MaskPattern::Diagonal);
     let qrcode = preprocessor.generate_qrcode();
 
     println!("{}", qrcode);

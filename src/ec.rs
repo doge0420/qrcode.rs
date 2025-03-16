@@ -1,6 +1,4 @@
-use crate::tables::{
-    DATA_BYTES_PER_BLOCK, EC_BYTES_PER_BLOCK, EXP_TABLE, GENERATOR_POLYNOMIALS, LOG_TABLE,
-};
+use crate::tables::{DATA_BYTES_PER_BLOCK, EXP_TABLE, GENERATOR_POLYNOMIALS, LOG_TABLE};
 
 #[derive(Clone, Copy)]
 pub enum EcLevel {
@@ -21,17 +19,21 @@ impl EcLevel {
     }
 }
 
-pub fn error_correction(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<u8> {
+pub fn error_correction(
+    data: &Vec<u8>,
+    version: u8,
+    ec_level: &EcLevel,
+    cw_per_block: usize,
+) -> Vec<u8> {
     let blocks = groups(data, version, ec_level);
 
-    let ec_size = EC_BYTES_PER_BLOCK[(version - 1) as usize][ec_level.ordinal() as usize];
     let ec_blocks = blocks
         .iter()
         .map(|block| {
             create_ec_for_block(
                 Vec::from(block.clone()),
-                ec_size,
-                GENERATOR_POLYNOMIALS[ec_size],
+                cw_per_block,
+                GENERATOR_POLYNOMIALS[cw_per_block],
             )
         })
         .collect::<Vec<Vec<u8>>>();
