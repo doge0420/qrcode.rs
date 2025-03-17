@@ -78,14 +78,14 @@ impl Preprocessor {
 
         let mut qrcode_bits = vec![];
         let mut mod_indicator_bits = encoding.mod_indicator();
-        let bytes = Bit::bytes(&bits);
 
-        let interleaved_bytes = interleave(groups(&bytes, version as u8, &ec_level));
-        let mut interleaved_bits = Bit::bits(&interleaved_bytes, bits.len());
+        // let bytes = Bit::bytes(&bits);
+        // let interleaved_bytes = interleave(groups(&bytes, version as u8, &ec_level));
+        // let mut interleaved_bits = Bit::bits(&interleaved_bytes, bits.len());
 
         qrcode_bits.append(&mut mod_indicator_bits);
         qrcode_bits.append(&mut char_count_to_bits);
-        qrcode_bits.append(&mut interleaved_bits);
+        qrcode_bits.append(&mut bits);
 
         // Compute total size without ec bits
         let (block_1_size, block_1_count, block_2_size, block_2_count) =
@@ -119,10 +119,12 @@ impl Preprocessor {
         }
 
         let cw_per_block = EC_BYTES_PER_BLOCK[version - 1][ec_level.ordinal() as usize];
+        let (_block_1_size, block_1_count, _block_2_size, block_2_count) =
+            DATA_BYTES_PER_BLOCK[version - 1][ec_level.ordinal() as usize];
 
-        debug_vec!(&qrcode_bits);
+        let ec_size = (block_1_count + block_2_count) * cw_per_block;
 
-        todo!("compute the correct lenght for the number of error correction bits");
+        // todo!("compute the correct lenght for the number of error correction bits");
         let mut error_correction = Bit::bits(
             &error_correction(
                 &Bit::bytes(&qrcode_bits),
@@ -130,12 +132,14 @@ impl Preprocessor {
                 &ec_level,
                 cw_per_block,
             ),
-            cw_per_block * 8,
+            ec_size * 8,
         );
 
-        debug_vec!(&error_correction);
+        // debug_vec!(&error_correction);
 
         qrcode_bits.append(&mut error_correction);
+
+        debug_vec!(&qrcode_bits);
 
         Preprocessor {
             qrcode_bits,

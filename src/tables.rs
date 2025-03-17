@@ -97,7 +97,6 @@ pub(crate) static KANJI_SIZE: [u32; 160] = [
 /// The number of error correction bytes per block per ec level.
 #[rustfmt::skip]
 pub(crate) static EC_BYTES_PER_BLOCK: [[usize; 4]; 40] = [
-    // Normal versions.
     [7, 10, 13, 17],  // 1
     [10, 16, 22, 28], // 2
     [15, 26, 18, 22], // 3
