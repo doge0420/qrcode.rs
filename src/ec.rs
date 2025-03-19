@@ -19,12 +19,12 @@ impl EcLevel {
     }
 }
 
-pub fn error_correction(
+pub fn codewords(
     data: &Vec<u8>,
     version: u8,
     ec_level: &EcLevel,
     cw_per_block: usize,
-) -> Vec<u8> {
+) -> (Vec<u8>, Vec<u8>) {
     let blocks = groups(data, version, ec_level);
 
     let ec_blocks = blocks
@@ -38,9 +38,9 @@ pub fn error_correction(
         })
         .collect::<Vec<Vec<u8>>>();
 
-    todo!("interleave the data codewords also. And remove the non interleaved ones from the qrcode bits");
-    todo!("check if the ec codewords for the block are correct or not");
-    interleave(ec_blocks)
+    // todo!("interleave the data codewords also. And remove the non interleaved ones from the qrcode bits");
+    // todo!("check if the ec codewords for the block are correct or not");
+    (interleave(blocks), interleave(ec_blocks))
 }
 
 pub fn groups(data: &Vec<u8>, version: u8, ec_level: &EcLevel) -> Vec<Vec<u8>> {

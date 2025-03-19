@@ -125,18 +125,18 @@ impl Preprocessor {
         let ec_size = (block_1_count + block_2_count) * cw_per_block;
 
         // todo!("compute the correct lenght for the number of error correction bits");
-        let mut error_correction = Bit::bits(
-            &error_correction(
-                &Bit::bytes(&qrcode_bits),
-                version as u8,
-                &ec_level,
-                cw_per_block,
-            ),
-            ec_size * 8,
+
+        let codewords = codewords(
+            &Bit::bytes(&qrcode_bits),
+            version as u8,
+            &ec_level,
+            cw_per_block,
         );
 
-        // debug_vec!(&error_correction);
+        let mut data_bits = Bit::bits(&codewords.0, codewords.0.len() * 8);
+        let mut error_correction = Bit::bits(&codewords.1, ec_size * 8);
 
+        qrcode_bits.append(&mut data_bits);
         qrcode_bits.append(&mut error_correction);
 
         debug_vec!(&qrcode_bits);
