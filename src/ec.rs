@@ -38,8 +38,6 @@ pub fn codewords(
         })
         .collect::<Vec<Vec<u8>>>();
 
-    // todo!("interleave the data codewords also. And remove the non interleaved ones from the qrcode bits");
-    // todo!("check if the ec codewords for the block are correct or not");
     (interleave(blocks), interleave(ec_blocks))
 }
 

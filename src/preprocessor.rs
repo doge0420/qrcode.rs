@@ -42,19 +42,6 @@ impl Preprocessor {
     ) -> Preprocessor {
         let mut bits = encoding.encode(data).unwrap();
 
-        bits.iter().enumerate().for_each(|(i, bit)| {
-            if bit.value() {
-                print!("1")
-            } else {
-                print!("0")
-            }
-
-            if (i + 1) % 8 == 0 {
-                print!(" ");
-            }
-        });
-        println!();
-
         let table = Self::table_from_encoding(encoding);
 
         let (v, _) = table
@@ -66,6 +53,7 @@ impl Preprocessor {
             .expect("Not enough space.");
 
         let version = v + 1;
+
         let char_count = Self::char_count(version as u8, encoding);
         let mut char_count_to_bits = Bit::from(data.len() as u32, char_count, false, true);
 
@@ -76,16 +64,12 @@ impl Preprocessor {
             ]);
         }
 
-        let mut qrcode_bits = vec![];
+        let mut data_segment = Vec::new();
         let mut mod_indicator_bits = encoding.mod_indicator();
 
-        // let bytes = Bit::bytes(&bits);
-        // let interleaved_bytes = interleave(groups(&bytes, version as u8, &ec_level));
-        // let mut interleaved_bits = Bit::bits(&interleaved_bytes, bits.len());
-
-        qrcode_bits.append(&mut mod_indicator_bits);
-        qrcode_bits.append(&mut char_count_to_bits);
-        qrcode_bits.append(&mut bits);
+        data_segment.append(&mut mod_indicator_bits);
+        data_segment.append(&mut char_count_to_bits);
+        data_segment.append(&mut bits);
 
         // Compute total size without ec bits
         let (block_1_size, block_1_count, block_2_size, block_2_count) =
@@ -93,56 +77,49 @@ impl Preprocessor {
         let total_data_bits = (block_1_size * block_1_count + block_2_size * block_2_count) * 8;
 
         // Add terminator bits (at most 4 0s)
-        if qrcode_bits.len() < total_data_bits {
-            let empty_bits = total_data_bits - qrcode_bits.len();
+        if data_segment.len() < total_data_bits {
+            let empty_bits = total_data_bits - data_segment.len();
             if empty_bits >= 4 {
-                qrcode_bits.append(&mut vec![Bit::Zero(false); 4]);
+                data_segment.append(&mut vec![Bit::Zero(false); 4]);
             } else {
-                qrcode_bits.append(&mut vec![Bit::Zero(false); empty_bits]);
+                data_segment.append(&mut vec![Bit::Zero(false); empty_bits]);
             }
         }
 
         // Add padding bits
-        while qrcode_bits.len() % 8 != 0 {
-            qrcode_bits.push(Bit::Zero(false));
+        while data_segment.len() % 8 != 0 {
+            data_segment.push(Bit::Zero(false));
         }
 
         // Add padding bytes
-        if qrcode_bits.len() < total_data_bits {
+        if data_segment.len() < total_data_bits {
             let mut byte_1 = to_bits_array(&[236]);
             let mut byte_2 = to_bits_array(&[17]);
 
-            while qrcode_bits.len() < total_data_bits {
-                qrcode_bits.extend_from_slice(&byte_1);
+            while data_segment.len() < total_data_bits {
+                data_segment.extend_from_slice(&byte_1);
                 std::mem::swap(&mut byte_1, &mut byte_2);
             }
         }
 
         let cw_per_block = EC_BYTES_PER_BLOCK[version - 1][ec_level.ordinal() as usize];
-        let (_block_1_size, block_1_count, _block_2_size, block_2_count) =
-            DATA_BYTES_PER_BLOCK[version - 1][ec_level.ordinal() as usize];
 
-        let ec_size = (block_1_count + block_2_count) * cw_per_block;
-
-        // todo!("compute the correct lenght for the number of error correction bits");
-
-        let codewords = codewords(
-            &Bit::bytes(&qrcode_bits),
+        let (data_codewords, ec_codewords) = codewords(
+            &Bit::bytes(&data_segment),
             version as u8,
             &ec_level,
             cw_per_block,
         );
 
-        let mut data_bits = Bit::bits(&codewords.0, codewords.0.len() * 8);
-        let mut error_correction = Bit::bits(&codewords.1, ec_size * 8);
+        let mut data_bits = Bit::bits(&data_codewords, data_codewords.len() * 8);
+        let error_correction = Bit::bits(&ec_codewords, ec_codewords.len() * 8);
 
-        qrcode_bits.append(&mut data_bits);
-        qrcode_bits.append(&mut error_correction);
+        data_bits.extend(error_correction);
 
-        debug_vec!(&qrcode_bits);
+        debug_vec!(&data_bits);
 
         Preprocessor {
-            qrcode_bits,
+            qrcode_bits: data_bits,
             encoding,
             ec_level,
             version: version as u8,
